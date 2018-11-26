@@ -230,17 +230,6 @@ to-report near-providers [t p r]
   report all-providers
 end
 
-; Retourne la liste des id des agents pour lesquels on a déjà des références de type IT
-;to-report agents-with-IT
- ; let whos []
-  ;foreach R-IT
-  ;[x -> let b item 1 x
-  ; lput b whos
-  ;]
-  ;set whos remove-duplicates whos
-  ;report whos
-;end
-
 to-report get-ids [agents]
   let whos []
   ask agents [
@@ -248,6 +237,13 @@ to-report get-ids [agents]
   ]
   report whos
 end
+
+to-report provide-service
+  report performance
+end
+
+
+; ---------------------- Fonctions liées à la composante IT ---------------------
 
 to-report  has-IT [x]
   foreach R-IT
@@ -270,7 +266,8 @@ end
 
 
 to-report T_I [list_r]
-  let num 0
+  if not empty? list_r
+  [let num 0
   let denom 0
   ;show list_r
   foreach list_r
@@ -280,26 +277,10 @@ to-report T_I [list_r]
     set num (num + (w * v))
     set denom denom + w
   ]
-  report num / denom
+    report num / denom]
+  report 0
 end
 
-to-report provide-service
-  report performance
-end
-
-to new-record-CR [c p t v]
-  ifelse not empty? R-CR
-  [let L length R-CR
-  ;show "L"
-
-  ;show L
-  ifelse L < H
-  [set R-CR lput (list c p t v ) R-CR]
-  [set R-CR but-first R-CR
-    set R-CR lput (list c p t v ) R-CR]
-  ]
-  [set R-CR lput (list c p t v ) R-CR]
-end
 
 to new-record-IT [c p t v]
   ;show "in new record"
@@ -315,6 +296,165 @@ to new-record-IT [c p t v]
     set R-IT lput (list c p t v ) R-IT]
   ]
   [set R-IT lput (list c p t v ) R-IT]
+end
+
+to-report ro_RI [list-r]
+  let somme 0
+  foreach list-r
+  [r -> let w w_I r
+   set somme (somme + w)
+  ]
+  let exponent (- gamma-i * somme)
+  report (1 - exp exponent)
+end
+
+to-report ro_DI [list-r T]
+  let somme-denom 0
+  let somme-num 0
+  foreach list-r
+  [r -> let w w_I r
+   let v item 3 r
+   let diff (abs v - T)
+   set somme-num (somme-num + w * diff)
+   set somme-denom (somme-denom + w)
+  ]
+  let frac (0.5 * somme-num / somme-denom )
+  report 1 - frac
+end
+
+to-report ro_I [list-r T]
+  if not empty? list-r
+  [let r1 ro_RI list-r
+  let r2 ro_DI list-r T
+    report r1 * r2]
+  report 0
+end
+
+
+; ---------------------  Fonctions liées à la composante CR ------------------
+
+to-report has-CR
+let l length R-CR
+if l > 0
+  [report true]
+report false
+end
+
+
+
+to new-record-CR [c p t v]
+  ifelse not empty? R-CR
+  [let L length R-CR
+  ;show "L"
+
+  ;show L
+  ifelse L < H
+  [set R-CR lput (list c p t v ) R-CR]
+  [ let minimum item 3 item 0 R-CR
+    let r-min item 0 R-CR
+    foreach R-CR[
+    r -> let val item 3 r
+    let temps item 3 r
+    ifelse val < minimum
+        [set minimum val
+         set r-min r]
+        [if val = minimum and temps < item 2 r-min
+          [set minimum val
+           set r-min r]
+        ]
+    ]
+
+    if minimum <= v
+    [let index position r-min R-CR
+     set R-CR remove index R-CR
+        set R-CR lput (list c p t v ) R-CR]
+    ]
+  ]
+  [set R-CR lput (list c p t v ) R-CR]
+end
+
+to-report has-TV [provider-id]
+
+  if has-IT provider-id
+  [report true]
+
+  let bool false
+
+  ask provider provider-id [set bool has-CR]
+  report bool
+end
+
+to-report w_C [r] ; pareil comme w_I si les agents sont honnetes
+  let t item 2 r
+  let dt  ticks - t
+
+  let lambda (- 5 / (ln 0.5)) ; !!! La variable devrait apparaitre dans l'interface
+
+  let exponent (- dt / lambda)
+  ;show exponent
+  report exp exponent
+end
+
+to-report T_C [list_r]
+  if not empty? list_r
+  [let num 0
+  let denom 0
+  ;show list_r
+  foreach list_r
+  [ r -> let t item 2 r
+    let v item 3 r
+    let w w_I r
+    set num (num + (w * v))
+    set denom denom + w
+  ]
+    report num / denom
+  ]
+
+  report 0
+end
+
+to-report ro_RC [list-r]
+  let somme 0
+  foreach list-r
+  [r -> let w w_C r
+   set somme (somme + w)
+  ]
+  let exponent (- gamma-c * somme)
+  report (1 - exp exponent)
+end
+
+to-report ro_DC [list-r T]
+  let somme-denom 0
+  let somme-num 0
+  foreach list-r
+  [r -> let w w_C r
+   let v item 3 r
+   let diff (abs v - T)
+   set somme-num (somme-num + w * diff)
+   set somme-denom (somme-denom + w)
+  ]
+  let frac (0.5 * somme-num / somme-denom )
+  report 1 - frac
+end
+
+to-report ro_C [list-r T]
+  if not empty? list-r
+  [let r1 ro_RC list-r
+  let r2 ro_DC list-r T
+    report r1 * r2]
+  report 0
+end
+
+; ----------------- Fonctions pour calculer la valeur complète de TV --------------------
+
+to-report trust-IT-CR [list-I list-C]
+  let trust-I T_I list-I
+  let trust-C T_C list-C
+  let reliability-I (W-I * ro_I list-I trust-I)
+  let reliability-C (W-C * ro_C list-C trust-C)
+
+  let num (reliability-I * trust-I + reliability-C * trust-C)
+  let denom reliability-I + reliability-C
 end
 
 
@@ -348,7 +488,7 @@ to setup
              item 2 coord
       set shape "turtle"
     set color item classe colors
-    ser R-CR []
+    set R-CR []
   ]
 
   ; create consumers
@@ -395,8 +535,11 @@ to go
       let whos get-ids all-providers ; on récupère des identifiants des providers
       ;show whos
       let notHasTV filter [x -> not has-IT x] whos  ; les providers pour lesquels on n'a pas de trust value
+      ;let notHasTV filter [x -> not has-TV x] whos   - ADAPTE pour CR
       ;show notHasTV
+
       let hasTV filter [x -> has-IT x] whos ; les providers pour lesquels on a le trust value
+      ;let hasTV filter [x-> has-TV x]   - ADAPTE POUR CR
 
       let list_TV [] ;  liste des trust values des providers de hasTV
       foreach hasTV
@@ -429,6 +572,7 @@ to go
             ask provider provider-who
             [set UG provide-service
                  new-record-CR consumer-id who ticks UG
+                 ;show R-CR
             ;show "performance :"
             ;show performance ]
           ]
@@ -443,6 +587,7 @@ to go
           ;show provider-who
           ask provider provider-who [set UG provide-service
             new-record-CR consumer-id who ticks UG
+            ;show R-CR
           ;show "performance :"
           ;show performance]
             ]
@@ -457,6 +602,7 @@ to go
           ;show provider-who
           ask provider provider-who [set UG provide-service
             new-record-CR consumer-id who ticks UG
+            ;show R-CR
           ;show "performance :"
           ;show performance]
             ]
@@ -524,10 +670,10 @@ ticks
 30.0
 
 BUTTON
-10
-97
-73
-130
+7
+289
+70
+322
 NIL
 Setup\n
 NIL
@@ -563,8 +709,8 @@ SLIDER
 nb-consumers
 nb-consumers
 0
-100
-89.0
+500
+500.0
 1
 1
 NIL
@@ -594,7 +740,7 @@ p_switchProfile
 p_switchProfile
 0
 100
-2.0
+0.0
 1
 1
 %
@@ -616,10 +762,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-99
-95
-162
-128
+80
+290
+143
+323
 go
 go\n
 T
@@ -724,9 +870,69 @@ false
 "" ""
 PENS
 "UG" 1.0 0 -13840069 true "" "plot moyenne-IT"
-"pen-1" 1.0 0 -16777216 true "" "plot 0"
-"pen-2" 1.0 0 -16777216 true "" "plot 10"
-"pen-3" 1.0 0 -16777216 true "" "plot -10"
+"" 1.0 0 -16777216 true "" "plot 0"
+"" 1.0 0 -9276814 true "" "plot 5"
+"" 1.0 0 -7500403 true "" "plot -5"
+
+SLIDER
+11
+93
+183
+126
+gamma-I
+gamma-I
+0
+1
+0.5
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+13
+136
+185
+169
+gamma-C
+gamma-C
+0
+1
+0.5
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+13
+180
+185
+213
+W-I
+W-I
+0
+1
+0.5
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+17
+223
+189
+256
+W-C
+W-C
+0
+1
+0.5
+0.01
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
