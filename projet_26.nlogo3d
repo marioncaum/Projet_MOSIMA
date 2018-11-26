@@ -7,6 +7,7 @@ globals [
   mu-max
   sigma ; liste des différents écarts-types des classes des providers
   colors
+  moyenne-IT
 ]
 
 providers-own [
@@ -155,6 +156,7 @@ to add-providers
              item 2 coord
       set shape "turtle"
     set color item classe colors
+    set R-CR []
   ]
 end
 
@@ -163,10 +165,10 @@ to add-consumers
   let x random p_CPC
 
   let nb_add (nb-consumers / 100 * x )
-
-  create-consumers nb-consumers
+  set nb_add round nb_add
+  create-consumers nb_add
     [ set r0 10
-      set alpha random-float 1.0
+      set alpha random 100
       set theta random-float 360.0
       set phi random-float 360.0
       let coord pos theta phi rayon
@@ -285,6 +287,20 @@ to-report provide-service
   report performance
 end
 
+to new-record-CR [c p t v]
+  ifelse not empty? R-CR
+  [let L length R-CR
+  ;show "L"
+
+  ;show L
+  ifelse L < H
+  [set R-CR lput (list c p t v ) R-CR]
+  [set R-CR but-first R-CR
+    set R-CR lput (list c p t v ) R-CR]
+  ]
+  [set R-CR lput (list c p t v ) R-CR]
+end
+
 to new-record-IT [c p t v]
   ;show "in new record"
   ;show R-IT
@@ -332,12 +348,13 @@ to setup
              item 2 coord
       set shape "turtle"
     set color item classe colors
+    ser R-CR []
   ]
 
   ; create consumers
   create-consumers nb-consumers
     [ set r0 10
-      set alpha random-float 1.0
+      set alpha random 100
       set theta random-float 360.0
       set phi random-float 360.0
       let coord pos theta phi rayon
@@ -365,12 +382,14 @@ to setup
 end
 
 to go
-
+  let UG_moyenne-IT []
   ask consumers[
     let r random 100
+    let consumer-id who
 
     if r <= alpha ;demander un service
-    [ let all-providers near-providers theta phi r0
+    [ let UG false
+      let all-providers near-providers theta phi r0
       ;ask all-providers [show who]
       ;let hasTrustValue
       let whos get-ids all-providers ; on récupère des identifiants des providers
@@ -389,7 +408,7 @@ to go
       ]
       ;show hasTV
       ;show list_TV
-      let UG false
+
       ifelse not empty? list_TV
       [
         let max-TV max list_TV ; la valeur expecté de TV
@@ -407,7 +426,9 @@ to go
             let provider-who item i hasTV
             ;show "provider-known :"
             ;show provider-who
-            ask provider provider-who [set UG provide-service
+            ask provider provider-who
+            [set UG provide-service
+                 new-record-CR consumer-id who ticks UG
             ;show "performance :"
             ;show performance ]
           ]
@@ -421,6 +442,7 @@ to go
           ;show "provider-who"
           ;show provider-who
           ask provider provider-who [set UG provide-service
+            new-record-CR consumer-id who ticks UG
           ;show "performance :"
           ;show performance]
             ]
@@ -434,6 +456,7 @@ to go
           ;show "provider-hasard"
           ;show provider-who
           ask provider provider-who [set UG provide-service
+            new-record-CR consumer-id who ticks UG
           ;show "performance :"
           ;show performance]
             ]
@@ -443,8 +466,19 @@ to go
       ] ;else du premier if - il n'y a aucune information sur aucun provider, on doit choisir au hasard
       ;show "UG :"
       ;show UG
+      set UG_moyenne-IT lput UG UG_moyenne-IT
     ]
+
   ]
+
+  ;show "T :"
+  ;show ticks
+  if not empty? UG_moyenne-IT
+  [set moyenne-IT mean UG_moyenne-IT]
+  ;show "Moyenne :"
+  ;show moyenne-IT
+
+
   ask providers [
     switch-profile
     change-performance
@@ -454,8 +488,8 @@ to go
   ]
   remove-providers
   add-providers
-  ;remove-consumers
-  ;add-consumers
+  remove-consumers
+  add-consumers
   display
   tick
 end
@@ -530,7 +564,7 @@ nb-consumers
 nb-consumers
 0
 100
-21.0
+89.0
 1
 1
 NIL
@@ -672,6 +706,27 @@ H
 1
 NIL
 HORIZONTAL
+
+PLOT
+655
+16
+1230
+166
+FIRE-IT 
+T
+UG
+0.0
+200.0
+-10.0
+10.0
+true
+false
+"" ""
+PENS
+"UG" 1.0 0 -13840069 true "" "plot moyenne-IT"
+"pen-1" 1.0 0 -16777216 true "" "plot 0"
+"pen-2" 1.0 0 -16777216 true "" "plot 10"
+"pen-3" 1.0 0 -16777216 true "" "plot -10"
 
 @#$#@#$#@
 ## WHAT IS IT?
